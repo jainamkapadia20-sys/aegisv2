@@ -70,7 +70,6 @@ svg.i { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-widt
 
 /* Header + day strip */
 .top { display: flex; justify-content: space-between; align-items: flex-end; padding: 4px 2px 0; }
-.brand { font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
 h1 { margin: 0; font: 700 32px/1.1 "Barlow Condensed", sans-serif; }
 .days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 12px; }
 .day { display: grid; justify-items: center; gap: 2px; padding: 8px 0; border-radius: 12px; min-height: 56px; color: var(--text-2); }
@@ -210,10 +209,7 @@ select.search { appearance: none; }
 <body>
 <div class="app" id="app">
   <header class="top">
-    <div>
-      <div class="brand">AegisV2</div>
-      <h1 id="title">Today</h1>
-    </div>
+    <h1 id="title">Today</h1>
     <div class="faint" id="dateLabel" style="font-size:15px;padding-bottom:4px"></div>
   </header>
   <div class="days" id="days" role="group" aria-label="This week"></div>
