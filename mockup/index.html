@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AegisV2">
+<meta name="theme-color" content="#f5f5f2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f0f0e" media="(prefers-color-scheme: dark)">
+<title>AegisV2 Today</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Design tokens. Mockup only: sample data, nothing personal. */
+:root {
+  color-scheme: light;
+  --bg: #f5f5f2; --surface: #ffffff; --surface-2: #f0efea; --border: #e4e3de;
+  --text: #121211; --text-2: #52514e; --text-3: #6b6a65;
+  --ink: #121211; --on-ink: #ffffff;
+  --protein: #2a78d6; --carbs: #eb6834; --fat: #1baf7a;
+  --bar-muted: #d6d5cf; --track: #ebeae5;
+  --warn: #b45309;
+  --shadow: 0 1px 2px rgba(18,18,17,.06), 0 4px 16px rgba(18,18,17,.04);
+  --radius: 18px;
+  --ease-out: cubic-bezier(.22,1,.36,1);
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --bg: #0f0f0e; --surface: #1a1a19; --surface-2: #242422; --border: #2e2e2b;
+    --text: #f0efec; --text-2: #c3c2b7; --text-3: #a3a297;
+    --ink: #f0efec; --on-ink: #121211;
+    --protein: #3987e5; --carbs: #d95926; --fat: #199e70;
+    --bar-muted: #3a3a37; --track: #2a2a28;
+    --warn: #f59e0b;
+    --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f0f0e; --surface: #1a1a19; --surface-2: #242422; --border: #2e2e2b;
+  --text: #f0efec; --text-2: #c3c2b7; --text-3: #a3a297;
+  --ink: #f0efec; --on-ink: #121211;
+  --protein: #3987e5; --carbs: #d95926; --fat: #199e70;
+  --bar-muted: #3a3a37; --track: #2a2a28;
+  --warn: #f59e0b;
+  --shadow: none;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--text);
+  font: 16px/1.45 Barlow, -apple-system, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
+}
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; touch-action: manipulation; }
+body.locked { overflow: hidden; }
+.num { font-family: "Barlow Condensed", Barlow, sans-serif; font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+.app { max-width: 480px; margin: 0 auto; padding: max(12px, env(safe-area-inset-top)) 16px calc(112px + env(safe-area-inset-bottom)); }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; margin-top: 12px; }
+.muted { color: var(--text-2); }
+.faint { color: var(--text-3); }
+.row { display: flex; align-items: center; gap: 8px; }
+.between { justify-content: space-between; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+:focus-visible { outline: 2px solid var(--protein); outline-offset: 2px; border-radius: 8px; }
+svg.i { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+/* Header + day strip */
+.top { display: flex; justify-content: space-between; align-items: flex-end; padding: 4px 2px 0; }
+.brand { font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
+h1 { margin: 0; font: 700 32px/1.1 "Barlow Condensed", sans-serif; }
+.days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 12px; }
+.day { display: grid; justify-items: center; gap: 2px; padding: 8px 0; border-radius: 12px; min-height: 56px; color: var(--text-2); }
+.day b { font: 600 18px/1 "Barlow Condensed", sans-serif; color: var(--text); }
+.day small { font-size: 12px; }
+.day i { width: 5px; height: 5px; border-radius: 50%; background: var(--text-3); opacity: 0; }
+.day.logged i { opacity: .7; }
+.day[aria-current="date"] { background: var(--ink); color: var(--on-ink); }
+.day[aria-current="date"] b { color: var(--on-ink); }
+.day[aria-current="date"] i { background: var(--on-ink); }
+
+/* Hero: calories as a number + meter (one ratio vs a limit) */
+.hero-label { font-size: 14px; font-weight: 600; color: var(--text-2); }
+.hero-num { display: flex; align-items: baseline; gap: 6px; margin-top: 2px; }
+.hero-num .big { font-size: 56px; font-weight: 700; line-height: 1; }
+.hero-num .of { font-size: 20px; color: var(--text-2); font-weight: 500; }
+.left { text-align: right; }
+.left .num { font-size: 28px; font-weight: 600; line-height: 1; }
+.meter { position: relative; height: 12px; border-radius: 6px; background: var(--track); margin-top: 14px; overflow: hidden; }
+.meter > span { position: absolute; inset: 0 auto 0 0; border-radius: 6px; background: var(--ink); transition: width .45s var(--ease-out); }
+.meter > .band { background: var(--ink); opacity: .22; border-radius: 0 6px 6px 0; }
+.range { font-size: 13px; margin-top: 8px; }
+.over { color: var(--warn); font-weight: 600; display: none; align-items: center; gap: 4px; font-size: 14px; }
+.over.show { display: inline-flex; }
+.watch { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+.watch div { display: grid; gap: 0; }
+.watch .num { font-size: 22px; font-weight: 600; line-height: 1.1; }
+.watch small { font-size: 12px; color: var(--text-2); }
+
+/* Macro meter list */
+.macro { display: grid; grid-template-columns: 1fr auto; gap: 6px 8px; align-items: baseline; }
+.macro + .macro { margin-top: 14px; }
+.macro .name { font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.macro .name i { width: 10px; height: 10px; border-radius: 3px; }
+.macro .fig { font-size: 15px; color: var(--text-2); }
+.macro .fig b { font: 600 20px/1 "Barlow Condensed", sans-serif; color: var(--text); }
+.macro .meter { grid-column: 1 / -1; margin-top: 0; height: 8px; }
+.macro.lead .meter { height: 14px; border-radius: 7px; }
+.macro.lead .fig b { font-size: 26px; }
+.macro .meter > span { border-radius: inherit; }
+
+/* Idea */
+.idea { display: flex; gap: 12px; align-items: flex-start; }
+.idea .dot { width: 36px; height: 36px; border-radius: 12px; background: var(--surface-2); display: grid; place-items: center; color: var(--protein); flex: none; }
+.idea p { margin: 0; }
+.idea .t { font-weight: 600; }
+
+/* Meals */
+.meal-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.meal-h h2 { margin: 0; font-size: 18px; font-weight: 700; }
+.meal-h .sum { font-size: 14px; color: var(--text-2); }
+.meal-h .sum b { font: 600 18px/1 "Barlow Condensed", sans-serif; color: var(--text); }
+.addbtn { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; background: var(--surface-2); flex: none; }
+.items { list-style: none; margin: 10px 0 0; padding: 0; }
+.item { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 10px 0; min-height: 52px; border-top: 1px solid var(--border); }
+.item .thumb { width: 40px; height: 40px; border-radius: 10px; flex: none; background: linear-gradient(135deg, #c98a3d, #8a4b1f); position: relative; }
+.item .thumb::after { content: ""; position: absolute; inset: 9px; border-radius: 50%; border: 2px solid rgba(255,255,255,.6); }
+.item .ph { width: 40px; height: 40px; border-radius: 10px; flex: none; background: var(--surface-2); display: grid; place-items: center; color: var(--text-3); }
+.item .txt { flex: 1; min-width: 0; }
+.item .nm { font-weight: 600; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.25; }
+.item .pt { font-size: 14px; color: var(--text-2); }
+.item .kc { text-align: right; font-size: 13px; color: var(--text-2); }
+.item .kc b { display: block; font: 600 18px/1.1 "Barlow Condensed", sans-serif; color: var(--text); }
+.est { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-2); background: var(--surface-2); border-radius: 6px; padding: 1px 6px; margin-left: 6px; vertical-align: 2px; }
+.emptyrow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.toast { position: fixed; left: 16px; right: 16px; bottom: calc(96px + env(safe-area-inset-bottom)); max-width: 448px; margin: 0 auto; background: var(--ink); color: var(--on-ink); border-radius: 14px; padding: 6px 6px 6px 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px; transform: translateY(12px); opacity: 0; pointer-events: none; visibility: hidden; transition: opacity .18s, transform .18s ease-in, visibility 0s .18s; z-index: 9; }
+.toast.show { opacity: 1; transform: none; pointer-events: auto; visibility: visible; transition: opacity .25s, transform .3s var(--ease-out), visibility 0s; }
+.toast button { min-height: 44px; padding: 0 14px; font-weight: 700; color: var(--on-ink); text-decoration: underline; }
+.empty { margin-top: 10px; padding: 14px; border: 1.5px dashed var(--border); border-radius: 14px; width: 100%; color: var(--text-2); display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; }
+
+/* Water */
+.glasses { display: flex; gap: 6px; margin-top: 10px; }
+.glass { flex: 1; height: 36px; border-radius: 8px; background: var(--track); transition: background .2s; }
+.glass.on { background: var(--protein); }
+
+/* Week chart */
+.chart { position: relative; margin-top: 12px; }
+.chart svg { width: 100%; height: 150px; display: block; overflow: visible; }
+.tip { position: absolute; pointer-events: none; background: var(--ink); color: var(--on-ink); font-size: 13px; padding: 6px 10px; border-radius: 10px; white-space: nowrap; transform: translate(-50%, -100%); opacity: 0; transition: opacity .12s; }
+.tip.show { opacity: 1; }
+.legend { display: flex; gap: 14px; font-size: 13px; color: var(--text-2); margin-top: 8px; flex-wrap: wrap; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 14px; height: 0; border-top: 2px dashed var(--text-2); }
+.legend i.sw { height: 10px; width: 10px; border: 0; border-radius: 3px; background: var(--ink); }
+
+/* Bottom nav */
+nav.tabs { position: fixed; left: 0; right: 0; bottom: 0; background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-top: 1px solid var(--border); padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); }
+nav.tabs .in { max-width: 480px; margin: 0 auto; display: grid; grid-template-columns: repeat(5, 1fr); align-items: center; }
+.tab { display: grid; justify-items: center; gap: 2px; font-size: 11px; font-weight: 600; color: var(--text-3); min-height: 48px; padding-top: 4px; }
+.tab[aria-current="page"] { color: var(--text); }
+.cam { justify-self: center; width: 60px; height: 60px; border-radius: 20px; background: var(--ink); color: var(--on-ink); display: grid; place-items: center; margin-top: -22px; box-shadow: 0 6px 20px rgba(0,0,0,.18); transition: transform .15s var(--ease-out); }
+.cam:active { transform: scale(.94); }
+.cam svg.i { width: 28px; height: 28px; }
+
+/* Bottom sheet */
+.scrim { position: fixed; inset: 0; background: rgba(0,0,0,.4); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 10; }
+.scrim.open { opacity: 1; pointer-events: auto; }
+.sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 11; max-width: 480px; margin: 0 auto; background: var(--surface); border-radius: 24px 24px 0 0; padding: 8px 16px calc(20px + env(safe-area-inset-bottom)); max-height: 88vh; max-height: 88dvh; overflow-y: auto; overscroll-behavior: contain; transform: translateY(105%); visibility: hidden; transition: transform .18s ease-in, visibility 0s .18s; }
+.sheet.open { transform: translateY(0); visibility: visible; transition: transform .3s var(--ease-out), visibility 0s; }
+.grab { width: 40px; height: 5px; border-radius: 3px; background: var(--border); margin: 0 auto 10px; }
+.sheet h3 { margin: 0; font-size: 22px; font-weight: 700; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; background: var(--surface-2); border-radius: 12px; padding: 3px; margin-top: 14px; }
+.seg button { min-height: 40px; border-radius: 10px; font-weight: 600; color: var(--text-2); }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+.step { display: grid; grid-template-columns: 56px 1fr 56px; align-items: center; margin-top: 14px; }
+.step button { height: 56px; border-radius: 16px; background: var(--surface-2); font-size: 26px; font-weight: 600; }
+.step .val { text-align: center; }
+.step .val .num { font-size: 40px; font-weight: 700; line-height: 1; }
+.step .val small { display: block; color: var(--text-2); font-size: 14px; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.chip { min-height: 40px; padding: 0 14px; border-radius: 20px; border: 1px solid var(--border); font-weight: 500; }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+.label { font-size: 14px; font-weight: 600; color: var(--text-2); margin-top: 16px; }
+.facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 16px; background: var(--surface-2); border-radius: 14px; padding: 12px; text-align: center; }
+.facts .num { font-size: 22px; font-weight: 700; display: block; line-height: 1.1; }
+.facts small { font-size: 12px; color: var(--text-2); }
+.primary { width: 100%; min-height: 52px; border-radius: 16px; background: var(--ink); color: var(--on-ink); font-weight: 700; font-size: 17px; margin-top: 16px; }
+.ghost { width: 100%; min-height: 48px; border-radius: 16px; color: var(--warn); font-weight: 600; margin-top: 6px; }
+.search { width: 100%; min-height: 48px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: inherit; padding: 0 14px; margin-top: 14px; }
+.res { list-style: none; padding: 0; margin: 8px 0 0; }
+.res button { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 8px; text-align: left; padding: 12px 2px; min-height: 52px; border-top: 1px solid var(--border); }
+.photo { margin-top: 12px; height: 160px; border-radius: 16px; background: radial-gradient(circle at 30% 40%, #e0b36a 0 18%, transparent 19%), radial-gradient(circle at 62% 38%, #9b3d22 0 20%, transparent 21%), radial-gradient(circle at 48% 70%, #f2ead8 0 22%, transparent 23%), linear-gradient(135deg, #6b5a49, #3e342b); position: relative; }
+.photo span { position: absolute; left: 10px; bottom: 10px; font-size: 12px; color: #fff; background: rgba(0,0,0,.45); padding: 2px 8px; border-radius: 8px; }
+.det { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-top: 1px solid var(--border); }
+.det .txt { flex: 1; }
+.det .conf { font-size: 13px; color: var(--text-2); }
+.mini { display: flex; align-items: center; gap: 4px; }
+.mini button { width: 40px; height: 40px; border-radius: 12px; background: var(--surface-2); font-size: 20px; font-weight: 600; }
+.mini .num { min-width: 36px; text-align: center; font-size: 20px; font-weight: 700; }
+select.search { appearance: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0s !important; }
+}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <div>
+      <div class="brand">AegisV2</div>
+      <h1 id="title">Today</h1>
+    </div>
+    <div class="faint" id="dateLabel" style="font-size:15px;padding-bottom:4px"></div>
+  </header>
+  <div class="days" id="days" role="group" aria-label="This week"></div>
+
+  <section class="card" aria-labelledby="calLabel">
+    <div class="row between" style="align-items:flex-end">
+      <div>
+        <div class="hero-label" id="calLabel">Calories left today</div>
+        <div class="hero-num"><span class="num big" id="leftNum">0</span><span class="num of" id="leftLabel">of 2,000</span></div>
+      </div>
+      <div class="left">
+        <div class="num" id="eaten">0</div>
+        <div class="muted" style="font-size:14px">eaten</div>
+      </div>
+    </div>
+    <div class="meter" role="progressbar" aria-label="Calories eaten" aria-valuemin="0" aria-valuemax="2000" id="calMeter"><span class="band" id="calBand"></span><span id="calFill"></span></div>
+    <div class="row between range">
+      <span class="muted" id="rangeTxt"></span>
+      <span class="over" id="overTxt"><svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>Over target</span>
+    </div>
+    <div class="watch" aria-label="From Apple Watch">
+      <div><span class="num" id="burned">2,610</span><small>Burned so far</small></div>
+      <div><span class="num">8,420</span><small>Steps</small></div>
+      <div><span class="num">62 min</span><small>Strength</small></div>
+    </div>
+  </section>
+
+  <section class="card" aria-label="Macros">
+    <div id="macros"></div>
+  </section>
+
+  <section class="card idea" id="idea" aria-label="Next meal idea"></section>
+
+  <div id="meals"></div>
+
+  <section class="card" aria-labelledby="waterH">
+    <div class="meal-h">
+      <h2 id="waterH">Water</h2>
+      <span class="sum"><b class="num" id="waterNum">0</b> / 3 L</span>
+    </div>
+    <div class="glasses" id="glasses" role="group" aria-label="Glasses of water, 375 ml each"></div>
+  </section>
+
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<nav class="tabs" aria-label="Main">
+  <div class="in">
+    <button class="tab" aria-current="page"><svg class="i" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>Today</button>
+    <button class="tab" data-progress><svg class="i" viewBox="0 0 24 24"><path d="M4 19V5M4 19h16M8 15l4-4 3 3 5-6"/></svg>Progress</button>
+    <button class="cam" id="camBtn" aria-label="Scan a meal with the camera"><svg class="i" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg></button>
+    <button class="tab" data-soon="Foods"><svg class="i" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>Foods</button>
+    <button class="tab" data-soon="Settings"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Settings</button>
+  </div>
+</nav>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"><div class="grab"></div><div id="sheetBody"></div></div>
+<div class="sr" id="live" aria-live="polite"></div>
+
+<script>
+// ---- Sample food list (per serving; mockup values, checked properly in Phase 3) ----
+// unit: serving name, g: grams per serving, oil: grams of cooking oil already inside one serving
+const FOODS = {
+  poha:   { name: 'Poha', unit: 'plate', g: 180, kcal: 270, p: 5, c: 45, f: 8, oil: 6, cooked: true },
+  chai:   { name: 'Masala chai (with sugar)', unit: 'cup', g: 150, kcal: 90, p: 3, c: 13, f: 3, oil: 0 },
+  roti:   { name: 'Roti', unit: 'piece', g: 40, kcal: 100, p: 3, c: 18, f: 2, oil: 1, cooked: true },
+  dal:    { name: 'Dal tadka', unit: 'katori', g: 150, kcal: 180, p: 9, c: 22, f: 6, oil: 5, cooked: true },
+  pbm:    { name: 'Paneer butter masala', unit: 'katori', g: 150, kcal: 340, p: 14, c: 12, f: 26, oil: 12, cooked: true },
+  jeera:  { name: 'Jeera rice', unit: 'katori', g: 150, kcal: 220, p: 4, c: 40, f: 5, oil: 4, cooked: true },
+  curd:   { name: 'Curd', unit: 'katori', g: 150, kcal: 90, p: 5, c: 7, f: 5, oil: 0 },
+  whey:   { name: 'Whey protein', unit: 'scoop', g: 30, kcal: 120, p: 24, c: 3, f: 1.5, oil: 0 },
+  banana: { name: 'Banana', unit: 'medium', g: 120, kcal: 105, p: 1.3, c: 27, f: 0.4, oil: 0 },
+  soya:   { name: 'Soya chunk sabzi', unit: 'katori', g: 150, kcal: 210, p: 18, c: 14, f: 9, oil: 7, cooked: true },
+  chana:  { name: 'Roasted chana', unit: 'handful', g: 30, kcal: 110, p: 6, c: 18, f: 2, oil: 0 },
+  sprouts:{ name: 'Sprouts salad', unit: 'katori', g: 100, kcal: 100, p: 7, c: 15, f: 1, oil: 0 },
+  rajma:  { name: 'Rajma', unit: 'katori', g: 150, kcal: 200, p: 10, c: 28, f: 5, oil: 5, cooked: true },
+  paratha:{ name: 'Aloo paratha', unit: 'piece', g: 120, kcal: 290, p: 6, c: 38, f: 12, oil: 9, cooked: true },
+  paneer: { name: 'Paneer (raw)', unit: 'cube 25 g', g: 25, kcal: 66, p: 4.6, c: 0.9, f: 5, oil: 0 },
+};
+const TARGET = { kcal: 2000, p: 120, c: 255, f: 55 };
+const MEALS = [['breakfast','Breakfast'],['lunch','Lunch'],['snacks','Snacks'],['dinner','Dinner']];
+
+let uid = 0;
+const it = (food, qty, extra = {}) => ({ id: ++uid, food, mode: 'unit', qty, oil: 0, est: false, photo: false, ...extra });
+const log = {
+  breakfast: [it('poha', 1), it('chai', 1)],
+  lunch: [it('roti', 3), it('dal', 1), it('pbm', 1, { est: true, photo: true }), it('jeera', 1, { est: true, photo: true })],
+  snacks: [it('whey', 1), it('banana', 1)],
+  dinner: [],
+};
+let water = 5;
+const LAST = { paneer: { mode: 'g', qty: 100 } }; // last amount used per food
+const WEEK = [ // past days: kcal, protein g
+  ['Mon', 1980, 118], ['Tue', 2140, 124], ['Wed', 1890, 102], ['Thu', 2050, 126], ['Fri', 1760, 96], ['Sat', 2300, 131],
+];
+
+// ---- Maths ----
+function nutr(item) {
+  const f = FOODS[item.food];
+  const grams = item.mode === 'g' ? item.qty : item.qty * f.g;
+  const s = grams / f.g;
+  const oilG = f.oil * s * 0.5 * item.oil; // "more oil" = +50% of the oil in the dish, "less" = -50%
+  const kcal = f.kcal * s + oilG * 9;
+  const err = item.photo ? 0.2 : f.cooked ? 0.1 : 0; // estimate uncertainty: photo ±20%, cooked dish ±10%
+  return { grams, kcal, p: f.p * s, c: f.c * s, f: f.f * s + oilG, err };
+}
+function totals(items) {
+  return items.reduce((t, i) => { const n = nutr(i); t.kcal += n.kcal; t.p += n.p; t.c += n.c; t.f += n.f; t.err += n.kcal * n.err; return t; }, { kcal: 0, p: 0, c: 0, f: 0, err: 0 });
+}
+const all = () => MEALS.flatMap(([k]) => log[k]);
+const fmt = n => Math.round(n).toLocaleString('en-IN');
+const g1 = n => (Math.round(n * 10) / 10).toString();
+function portion(item) {
+  const f = FOODS[item.food];
+  if (item.mode === 'g') return `${fmt(item.qty)} g`;
+  const q = item.qty === 0.5 ? '½' : g1(item.qty);
+  const u = item.qty === 1 || item.qty === 0.5 ? f.unit : (f.unit.endsWith('y') ? f.unit : f.unit + 's');
+  return `${q} ${u}`;
+}
+
+// self-check of the portion maths (shortcut: in-page assert until Phase 4 adds unit tests)
+console.assert(Math.round(nutr({ food: 'dal', mode: 'g', qty: 300, oil: 0 }).kcal) === 360, 'grams mode scales');
+console.assert(Math.round(nutr({ food: 'dal', mode: 'unit', qty: 1, oil: 1 }).kcal) === 203, 'more oil adds 2.5 g');
+
+// ---- Render ----
+const $ = id => document.getElementById(id);
+const ICON = {
+  plus: '<svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+  img: '<svg class="i" viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M4 7h16v12H4zM9 4h6"/></svg>',
+  spark: '<svg class="i" viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/></svg>',
+};
+
+function renderDays() {
+  const now = new Date();
+  $('dateLabel').textContent = now.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+  const mon = new Date(now); mon.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+  $('days').innerHTML = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(mon); d.setDate(mon.getDate() + i);
+    const today = d.toDateString() === now.toDateString();
+    const past = d < now && !today;
+    return `<button class="day ${past || today ? 'logged' : ''}" ${today ? 'aria-current="date"' : ''} aria-label="${d.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}"><small>${'MTWTFSS'[i]}</small><b>${d.getDate()}</b><i></i></button>`;
+  }).join('');
+}
+
+function render() {
+  const focusKey = sheetOpen() ? '' : keyOf(document.activeElement);
+  draw();
+  if (focusKey) refocus(focusKey);
+}
+function draw() {
+  const t = totals(all());
+  const left = TARGET.kcal - t.kcal;
+  $('eaten').textContent = fmt(t.kcal);
+  $('leftNum').textContent = fmt(Math.abs(left));
+  $('leftLabel').textContent = left >= 0 ? 'of 2,000' : 'over 2,000';
+  $('calLabel').textContent = left >= 0 ? 'Calories left today' : 'Calories over today';
+  $('overTxt').classList.toggle('show', left < 0);
+  const pct = Math.min(t.kcal / TARGET.kcal, 1) * 100;
+  const band = Math.min((t.kcal + t.err) / TARGET.kcal, 1) * 100;
+  $('calFill').style.width = pct + '%';
+  $('calBand').style.width = band + '%';
+  $('calMeter').setAttribute('aria-valuenow', Math.round(t.kcal));
+  $('rangeTxt').textContent = t.err > 0 ? `Likely ${fmt(t.kcal - t.err)}–${fmt(t.kcal + t.err)} with estimates` : 'All items exact';
+
+  const macros = [['p', 'Protein', 'protein', true], ['c', 'Carbs', 'carbs'], ['f', 'Fat', 'fat']];
+  $('macros').innerHTML = macros.map(([k, n, col, lead]) => {
+    const v = t[k], tg = TARGET[k], w = Math.min(v / tg, 1) * 100;
+    return `<div class="macro ${lead ? 'lead' : ''}">
+      <span class="name"><i style="background:var(--${col})"></i>${n}</span>
+      <span class="fig"><b>${fmt(v)}</b> / ${tg} g${lead ? ` · <span>${fmt(Math.max(tg - v, 0))} g to go</span>` : ''}</span>
+      <div class="meter" role="progressbar" aria-label="${n}" aria-valuemin="0" aria-valuemax="${tg}" aria-valuenow="${Math.round(v)}"><span style="width:${w}%;background:var(--${col})"></span></div>
+    </div>`;
+  }).join('');
+
+  const pLeft = TARGET.p - t.p;
+  $('idea').innerHTML = pLeft > 5 && left > 150
+    ? `<div class="dot" aria-hidden="true">${ICON.spark}</div><div><p class="t">${fmt(pLeft)} g protein left, ${fmt(left)} kcal to spend</p><p class="muted">Soya chunk sabzi + 1 katori curd fits: about 300 kcal, 23 g protein.</p></div>`
+    : `<div class="dot" aria-hidden="true">${ICON.spark}</div><div><p class="t">${pLeft <= 5 ? 'Protein target hit' : 'Close to your calories'}</p><p class="muted">${pLeft <= 5 ? 'Nice. Keep the rest of today light.' : 'Pick something light and high in protein, like curd or sprouts.'}</p></div>`;
+
+  $('meals').innerHTML = MEALS.map(([k, label]) => {
+    const items = log[k], mt = totals(items);
+    const list = items.length ? `<ul class="items">${items.map(i => {
+      const n = nutr(i), f = FOODS[i.food];
+      return `<li><button class="item" data-edit="${k}:${i.id}" aria-label="Edit ${f.name}, ${portion(i)}, ${fmt(n.kcal)} kcal">
+        ${i.photo ? '<span class="thumb" aria-hidden="true"></span>' : `<span class="ph" aria-hidden="true">${ICON.img}</span>`}
+        <span class="txt"><span class="nm">${f.name}${i.est ? '<span class="est">est</span>' : ''}</span><span class="pt">${portion(i)}${i.oil ? (i.oil > 0 ? ' · more oil' : ' · less oil') : ''}</span></span>
+        <span class="kc"><b>${i.est ? '≈' : ''}${fmt(n.kcal)}</b>${fmt(n.p)} g protein</span>
+      </button></li>`;
+    }).join('')}</ul>` : `<div class="emptyrow"><button class="empty" data-add="${k}">${ICON.plus}Add ${label.toLowerCase()}</button><button class="empty" data-copy="${k}">Same as yesterday</button></div>`;
+    return `<section class="card" aria-labelledby="h-${k}">
+      <div class="meal-h">
+        <div><h2 id="h-${k}">${label}</h2><span class="sum">${items.length ? `<b class="num">${fmt(mt.kcal)}</b> kcal · ${fmt(mt.p)} g protein` : 'Nothing yet'}</span></div>
+        <button class="addbtn" data-add="${k}" aria-label="Add food to ${label}">${ICON.plus}</button>
+      </div>${list}</section>`;
+  }).join('');
+
+  $('waterNum').textContent = g1(water * 0.375);
+  $('glasses').innerHTML = Array.from({ length: 8 }, (_, i) => `<button class="glass ${i < water ? 'on' : ''}" aria-pressed="${i < water}" aria-label="${i + 1} glass${i ? 'es' : ''}" data-water="${i + 1}"></button>`).join('');
+
+  if ($('chart')) renderWeek(t);
+}
+
+// Progress tab (mockup): the week view lives here, not on the home screen
+function openProgress() {
+  openSheet(`<h3 id="sheetTitle">This week</h3>
+    <div class="sum muted" id="proteinDays" style="margin-top:4px"></div>
+    <div class="chart" id="chart"><div class="tip" id="tip"></div></div>
+    <div class="legend"><span><i class="sw"></i>Calories eaten</span><span><i></i>2,000 target</span></div>
+    <p class="muted" style="font-size:14px">Weight trend, protein streaks and your real daily burn are added here in step 3.</p>
+    <button class="primary" onclick="closeSheet()">Done</button>`);
+  renderWeek(totals(all()));
+}
+
+// "Same as yesterday" with undo
+const YESTERDAY = {
+  breakfast: [['paratha', 1], ['curd', 1], ['chai', 1]],
+  lunch: [['roti', 3], ['rajma', 1], ['jeera', 1]],
+  snacks: [['whey', 1], ['chana', 1]],
+  dinner: [['roti', 3], ['soya', 1], ['curd', 1]],
+};
+let toastTimer = 0;
+function copyYesterday(meal) {
+  const added = YESTERDAY[meal].map(([f, q]) => it(f, q));
+  log[meal].push(...added);
+  render();
+  refocus(`[data-add="${meal}"]`); // the "Same as yesterday" button is gone now
+  const label = MEALS.find(m => m[0] === meal)[1];
+  const t = $('toast');
+  t.innerHTML = `<span>Added yesterday's ${label.toLowerCase()}</span><button id="undoBtn">Undo</button>`;
+  t.classList.add('show');
+  $('undoBtn').onclick = () => { const ids = added.map(a => a.id); log[meal] = log[meal].filter(i => !ids.includes(i.id)); render(); t.classList.remove('show'); };
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 5000);
+}
+
+function renderWeek(t) {
+  const data = [...WEEK, ['Today', t.kcal, t.p]];
+  const W = 320, H = 150, pad = 18, max = 2600, bw = 26;
+  const x = i => pad + i * ((W - pad * 2 - bw) / 6);
+  const y = v => H - 22 - (v / max) * (H - 34);
+  const hits = WEEK.filter(d => d[2] >= TARGET.p).length;
+  $('proteinDays').innerHTML = `Protein hit <b class="num">${hits}</b> of ${WEEK.length} days`;
+  const bars = data.map((d, i) => {
+    const today = i === data.length - 1, top = y(d[1]);
+    return `<g class="bar" data-i="${i}" tabindex="0" role="img" aria-label="${d[0]}: ${fmt(d[1])} kcal, ${fmt(d[2])} g protein">
+      <rect x="${x(i) - 6}" y="0" width="${bw + 12}" height="${H}" fill="transparent"/>
+      <path d="M${x(i)},${H - 22} V${top + 4} q0,-4 4,-4 h${bw - 8} q4,0 4,4 V${H - 22} Z" fill="${today ? 'var(--ink)' : 'var(--bar-muted)'}"/>
+      <text x="${x(i) + bw / 2}" y="${H - 4}" text-anchor="middle" font-size="12" fill="var(--text-2)" font-family="Barlow">${d[0] === 'Today' ? 'Today' : d[0][0]}</text>
+    </g>`;
+  }).join('');
+  $('chart').innerHTML = `<svg viewBox="0 0 ${W} ${H}" aria-label="Calories eaten each day this week, against the 2,000 kcal target">
+    ${bars}
+    <line x1="${pad - 6}" x2="${W - pad + 6}" y1="${y(2000)}" y2="${y(2000)}" stroke="var(--text-2)" stroke-width="2" stroke-dasharray="5 5"/>
+    <text x="${W - pad + 6}" y="${y(2000) - 6}" text-anchor="end" font-size="12" fill="var(--text-2)" font-family="Barlow">2,000</text>
+  </svg><div class="tip" id="tip"></div>`;
+  const tip = $('tip'), svg = $('chart').querySelector('svg');
+  const show = g => {
+    const i = +g.dataset.i, d = data[i];
+    const r = svg.getBoundingClientRect(), k = r.width / W;
+    tip.innerHTML = `<b>${d[0]}</b> · ${fmt(d[1])} kcal · ${fmt(d[2])} g protein`;
+    tip.style.left = Math.min(Math.max((x(i) + bw / 2) * k, 90), r.width - 90) + 'px';
+    tip.style.top = (y(d[1]) * k - 8) + 'px';
+    tip.classList.add('show');
+  };
+  svg.querySelectorAll('.bar').forEach(g => {
+    g.addEventListener('pointerenter', () => show(g));
+    g.addEventListener('focus', () => show(g));
+    g.addEventListener('pointerleave', () => tip.classList.remove('show'));
+    g.addEventListener('blur', () => tip.classList.remove('show'));
+  });
+}
+
+// ---- Focus helpers: the HTML is re-rendered on every change, so focus is restored by a stable selector ----
+const KEYS = ['data-edit', 'data-add', 'data-copy', 'data-water', 'data-d', 'data-q', 'data-mode', 'data-oil', 'data-i', 'data-progress', 'data-soon', 'data-food'];
+function keyOf(el) {
+  if (!el || !el.getAttribute) return '';
+  if (el.id) return '#' + el.id;
+  for (const k of KEYS) if (el.hasAttribute(k)) return `[${k}="${el.getAttribute(k)}"]`;
+  return '';
+}
+function refocus(sel) { const el = sel && document.querySelector(sel); if (el) el.focus({ preventScroll: true }); return !!el; }
+const sheetOpen = () => $('sheet').classList.contains('open');
+
+// ---- Sheets ----
+let lastKey = '';
+function openSheet(html) {
+  const sheet = $('sheet');
+  if (sheetOpen()) { // re-render in place: keep scroll position and the focused control
+    const k = keyOf(document.activeElement), st = sheet.scrollTop;
+    $('sheetBody').innerHTML = html;
+    sheet.scrollTop = st; refocus(k);
+    return;
+  }
+  lastKey = keyOf(document.activeElement);
+  $('sheetBody').innerHTML = html;
+  $('scrim').classList.add('open'); sheet.classList.add('open');
+  $('app').inert = true; document.querySelector('nav.tabs').inert = true; document.body.classList.add('locked');
+  setTimeout(() => (sheet.querySelector('input, button') || sheet).focus(), 50);
+}
+function closeSheet(fallback) {
+  if (!sheetOpen()) return;
+  $('scrim').classList.remove('open'); $('sheet').classList.remove('open');
+  $('app').inert = false; document.querySelector('nav.tabs').inert = false; document.body.classList.remove('locked');
+  refocus(lastKey) || refocus(fallback);
+}
+$('scrim').onclick = () => closeSheet();
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+
+// Edit or add one item
+let draft = null;
+function editItem(meal, item, isNew) {
+  draft = { meal, isNew, item: { ...item } };
+  drawEdit();
+}
+function drawEdit() {
+  const { item, isNew, meal } = draft, f = FOODS[item.food], n = nutr(item);
+  const unitMode = item.mode === 'unit';
+  const chipsU = [0.5, 1, 1.5, 2, 3].map(q => `<button class="chip" aria-pressed="${unitMode && item.qty === q}" data-q="${q}">${q === 0.5 ? '½' : q} ${f.unit}</button>`).join('');
+  const chipsG = [50, 100, 150, 200, 250].map(q => `<button class="chip" aria-pressed="${!unitMode && item.qty === q}" data-q="${q}">${q} g</button>`).join('');
+  openSheet(`
+    <h3 id="sheetTitle">${f.name}</h3>
+    <div class="muted" style="font-size:14px">1 ${f.unit} ≈ ${f.g} g${f.cooked ? ' · typical cooking oil included' : ''}</div>
+    <div class="seg" role="group" aria-label="Amount in">
+      <button aria-pressed="${unitMode}" data-mode="unit">Servings</button>
+      <button aria-pressed="${!unitMode}" data-mode="g">Grams</button>
+    </div>
+    <div class="step">
+      <button data-d="-1" aria-label="Less">−</button>
+      <div class="val"><span class="num">${unitMode ? (item.qty === 0.5 ? '½' : g1(item.qty)) : fmt(item.qty)}</span><small>${unitMode ? f.unit + (item.qty === 1 || item.qty === 0.5 ? '' : 's') + ` · ${fmt(n.grams)} g` : 'grams'}</small></div>
+      <button data-d="1" aria-label="More">+</button>
+    </div>
+    <div class="chips">${unitMode ? chipsU : chipsG}</div>
+    ${f.oil ? `<div class="label">Looked oily or dry? (optional)</div>
+    <div class="chips" role="group" aria-label="Oil">${[[-1, 'Less oil'], [0, 'Normal'], [1, 'More oil']].map(([v, l]) => `<button class="chip" aria-pressed="${item.oil === v}" data-oil="${v}">${l}</button>`).join('')}</div>` : ''}
+    <div class="facts">
+      <div><span class="num">${item.est ? '≈' : ''}${fmt(n.kcal)}</span><small>kcal</small></div>
+      <div><span class="num" style="color:var(--text)">${fmt(n.p)}</span><small>protein g</small></div>
+      <div><span class="num">${fmt(n.c)}</span><small>carbs g</small></div>
+      <div><span class="num">${fmt(n.f)}</span><small>fat g</small></div>
+    </div>
+    <button class="primary" id="saveBtn">${isNew ? `Add to ${MEALS.find(m => m[0] === meal)[1]}` : 'Save'}</button>
+    ${isNew ? '' : '<button class="ghost" id="delBtn">Remove from log</button>'}
+  `);
+  $('live').textContent = `${portion(item)}, ${fmt(n.kcal)} kcal, ${fmt(n.p)} grams protein`;
+  const body = $('sheetBody');
+  body.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => {
+    const m = b.dataset.mode; if (m === item.mode) return;
+    item.qty = m === 'g' ? Math.round(item.qty * f.g / 10) * 10 : Math.max(0.5, Math.round(item.qty / f.g * 2) / 2);
+    item.mode = m; drawEdit();
+  });
+  body.querySelectorAll('[data-d]').forEach(b => b.onclick = () => {
+    const step = item.mode === 'g' ? 10 : 0.5;
+    item.qty = Math.max(step, +(item.qty + step * b.dataset.d).toFixed(1)); drawEdit();
+  });
+  body.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { item.qty = +b.dataset.q; drawEdit(); });
+  body.querySelectorAll('[data-oil]').forEach(b => b.onclick = () => { item.oil = +b.dataset.oil; drawEdit(); });
+  $('saveBtn').onclick = () => {
+    LAST[item.food] = { mode: item.mode, qty: item.qty };
+    const list = log[meal];
+    if (isNew) list.push({ ...item, id: ++uid });
+    else list.splice(list.findIndex(i => i.id === item.id), 1, item);
+    render(); closeSheet(`[data-add="${meal}"]`);
+  };
+  if (!isNew) $('delBtn').onclick = () => { log[meal] = log[meal].filter(i => i.id !== item.id); render(); closeSheet(`[data-add="${meal}"]`); };
+}
+
+function addFood(meal) {
+  const label = MEALS.find(m => m[0] === meal)[1];
+  const draw = q => Object.entries(FOODS).filter(([, f]) => f.name.toLowerCase().includes(q.toLowerCase()))
+    .map(([k, f]) => `<li><button data-food="${k}"><span><b style="font-weight:600">${f.name}</b><br><span class="muted" style="font-size:14px">1 ${f.unit} · ${f.g} g</span></span><span class="muted" style="font-size:14px;text-align:right"><b class="num" style="font-size:18px;color:var(--text)">${f.kcal}</b> kcal<br>${g1(f.p)} g protein</span></button></li>`).join('') || '<li class="muted" style="padding:12px 2px">No match in the sample list.</li>';
+  openSheet(`<h3 id="sheetTitle">Add to ${label}</h3>
+    <label class="sr" for="q">Search foods</label>
+    <input class="search" id="q" type="search" placeholder="Search: roti, dal, paneer…" autocomplete="off">
+    <ul class="res" id="res">${draw('')}</ul>`);
+  const bind = () => $('res').querySelectorAll('[data-food]').forEach(b => b.onclick = () => {
+    const last = LAST[b.dataset.food] || { mode: 'unit', qty: 1 }; // reopen with the unit you used last time
+    editItem(meal, { id: 0, food: b.dataset.food, mode: last.mode, qty: last.qty, oil: 0, est: false, photo: false }, true);
+  });
+  $('q').oninput = e => { $('res').innerHTML = draw(e.target.value); bind(); };
+  bind();
+}
+
+function scanMeal() {
+  const det = [{ food: 'rajma', qty: 1, conf: 82 }, { food: 'jeera', qty: 1, conf: 74 }, { food: 'roti', qty: 2, conf: 91 }];
+  const draw = () => {
+    $('detList').innerHTML = det.map((d, i) => {
+      const f = FOODS[d.food], n = nutr({ food: d.food, mode: 'unit', qty: d.qty, oil: 0, photo: true });
+      return `<div class="det"><div class="txt"><b style="font-weight:600">${f.name}</b><div class="conf">${d.conf}% sure · ${fmt(n.kcal * 0.8)}–${fmt(n.kcal * 1.2)} kcal</div></div>
+        <div class="mini"><button data-i="${i}" data-d="-1" aria-label="Less ${f.name}">−</button><span class="num">${d.qty === 0.5 ? '½' : g1(d.qty)}</span><button data-i="${i}" data-d="1" aria-label="More ${f.name}">+</button></div></div>`;
+    }).join('');
+    $('detList').querySelectorAll('[data-d]').forEach(b => b.onclick = () => { const d = det[b.dataset.i]; d.qty = Math.max(0.5, d.qty + 0.5 * b.dataset.d); draw(); });
+  };
+  openSheet(`<h3 id="sheetTitle">Check your meal</h3>
+    <div class="muted" style="font-size:14px">Sample scan. Fix anything before it's saved.</div>
+    <div class="photo" role="img" aria-label="Sample meal photo"><span>Sample photo</span></div>
+    <label class="label" for="hint" style="display:block">Hint (optional)</label>
+    <input class="search" id="hint" style="margin-top:6px" placeholder="e.g. 2 roti, 1 katori rajma">
+    <div id="detList" style="margin-top:8px"></div>
+    <label class="label" for="mealSel" style="display:block">Add to</label>
+    <select class="search" id="mealSel" style="margin-top:6px">${MEALS.map(([k, l]) => `<option value="${k}" ${k === 'dinner' ? 'selected' : ''}>${l}</option>`).join('')}</select>
+    <button class="primary" id="addScan">Add 3 items</button>`);
+  draw();
+  $('addScan').onclick = () => {
+    const meal = $('mealSel').value;
+    det.forEach(d => log[meal].push(it(d.food, d.qty, { est: true, photo: true })));
+    render(); closeSheet();
+  };
+}
+
+// ---- Events ----
+document.addEventListener('click', e => {
+  const ed = e.target.closest('[data-edit]');
+  if (ed) { const [meal, id] = ed.dataset.edit.split(':'); editItem(meal, log[meal].find(i => i.id === +id), false); return; }
+  const ad = e.target.closest('[data-add]');
+  if (ad) { addFood(ad.dataset.add); return; }
+  const w = e.target.closest('[data-water]');
+  if (w) { const n = +w.dataset.water; water = water === n ? n - 1 : n; render(); return; }
+  const cp = e.target.closest('[data-copy]');
+  if (cp) { copyYesterday(cp.dataset.copy); return; }
+  if (e.target.closest('[data-progress]')) { openProgress(); return; }
+  const soon = e.target.closest('[data-soon]');
+  if (soon) { openSheet(`<h3 id="sheetTitle">${soon.dataset.soon}</h3><p class="muted">This screen gets designed in Phase 2, step 4.</p><button class="primary" onclick="closeSheet()">OK</button>`); }
+});
+$('camBtn').onclick = scanMeal;
+
+renderDays();
+render();
+</script>
+</body>
+</html>
